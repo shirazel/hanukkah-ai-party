@@ -1,0 +1,721 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>מסיבת חנוכה עם AI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&display=swap">
+<style>
+/* Layout: fixed 1920x1080 stage scaled to the window, over a light time-tunnel canvas */
+:root{
+  --night:#0a1438;
+  --night-2:#0c1030;
+  --gold:#e8b94a;
+  --gold-soft:#ffe3a1;
+  --text:#f7efdc;
+  --muted:#b9b2d6;
+  --field:#7fd6ff;
+  --font:"Heebo","Arial Hebrew","Segoe UI",Arial,sans-serif;
+  --mono:Consolas,"Courier New",monospace;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0}
+[hidden]{display:none!important}
+body{background:#050a1c;color:var(--text);font-family:var(--font);overflow:hidden;
+  padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+#bg{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0;pointer-events:none}
+#vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:none}
+#stage{position:fixed;left:50%;top:50%;width:1920px;height:1080px;z-index:2;transform-origin:center center;overflow:hidden;
+  background:#0d2a6e url('img/bg-bokeh.webp') center/cover no-repeat;box-shadow:0 0 0 1px rgba(232,185,74,.15),0 30px 120px rgba(0,0,0,.6)}
+.slide{z-index:1}
+.slide{position:absolute;inset:0;padding:90px 130px 120px;box-sizing:border-box;direction:rtl;
+  display:flex;flex-direction:column;gap:34px;opacity:0;visibility:hidden;transition:opacity .45s ease,visibility 0s linear .45s}
+.slide.on{opacity:1;visibility:visible;transition:opacity .45s ease}
+.eyebrow{font-size:30px;font-weight:500;letter-spacing:.06em;color:var(--gold)}
+h1,h2,.big-msg{margin:0;text-wrap:balance;font-family:var(--font);font-weight:800;line-height:1.1;letter-spacing:-.01em}
+h2{font-size:84px;color:#fff;text-shadow:0 2px 30px rgba(10,20,56,.6)}
+.lead{font-size:36px;color:var(--muted);margin:0;line-height:1.4;max-width:1400px}
+.center{align-items:center;justify-content:center;text-align:center}
+
+/* cover */
+.cover{justify-content:flex-end;padding-bottom:70px;background:url('img/cover.webp') center/cover no-repeat}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.cover-title{width:820px;height:auto;animation:rise 1.4s ease-out both}
+.cover-meta{display:flex;flex-direction:column;align-items:center;gap:10px;animation:rise 1.4s .3s ease-out both}
+.cover .date{font-size:36px;font-weight:500;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.cover .by{font-size:30px;font-weight:300;color:var(--muted)}
+@keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+.rule{width:220px;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+
+/* agenda */
+.agenda{display:grid;grid-template-columns:repeat(4,1fr);gap:34px;margin-top:30px}
+.agenda .item{border:1px solid rgba(232,185,74,.35);border-radius:22px;padding:40px 34px;background:rgba(12,16,48,.62);
+  display:flex;flex-direction:column;gap:18px;min-height:300px}
+.agenda .num{font-size:92px;font-weight:900;color:var(--gold);line-height:1}
+.agenda .name{font-size:44px;font-weight:700}
+.agenda .sub{font-size:28px;color:var(--muted);line-height:1.4}
+
+/* prompt card */
+.card{position:relative;background:rgba(8,11,34,.82);border:1px solid rgba(232,185,74,.4);border-radius:20px;
+  padding:26px 30px 28px;display:flex;flex-direction:column;gap:14px;min-width:0;box-shadow:0 0 60px rgba(232,185,74,.08)}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.card-title{font-size:32px;font-weight:700;color:var(--gold-soft)}
+.prompt{margin:0;white-space:pre-wrap;word-wrap:break-word;font-family:var(--font);font-size:25px;line-height:1.5;color:var(--text)}
+.prompt[dir="ltr"]{text-align:left;font-size:23px;line-height:1.48}
+.fld{color:var(--field);font-weight:700;background:rgba(127,214,255,.12);border-radius:6px;padding:0 4px}
+.copy{font-family:var(--font);font-size:26px;font-weight:700;color:var(--night);background:linear-gradient(180deg,var(--gold-soft),var(--gold));
+  border:0;border-radius:999px;padding:10px 30px;cursor:pointer;flex-shrink:0;transition:transform .15s}
+.copy:hover{transform:scale(1.05)}
+.copy:focus-visible,.nav button:focus-visible{outline:3px solid var(--field);outline-offset:3px}
+.copy.done{background:var(--field)}
+.btns{display:flex;gap:12px}
+.copy.ghost{background:transparent;color:var(--gold-soft);box-shadow:inset 0 0 0 2px var(--gold)}
+.copy.ghost.done{background:var(--field);color:var(--night);box-shadow:none}
+.note{font-size:26px;color:var(--muted);line-height:1.45;margin:0}
+
+.row{display:flex;gap:40px;min-height:0;flex:1}
+.col{display:flex;flex-direction:column;gap:26px;min-width:0;flex:1}
+.coin-img{cursor:zoom-in;width:560px;height:560px;object-fit:cover;border-radius:50%;box-shadow:0 0 80px rgba(232,185,74,.35);align-self:center;flex-shrink:0}
+
+.donuts{display:grid;grid-template-columns:1fr 1fr;gap:18px;width:620px;flex-shrink:0;align-content:center}
+.donuts img{width:100%;aspect-ratio:1;object-fit:cover;background:rgba(12,16,48,.7);border-radius:16px;border:2px solid rgba(232,185,74,.55);
+  box-shadow:0 0 30px rgba(232,185,74,.2);cursor:zoom-in;transition:transform .2s}
+.donuts img:hover{transform:scale(1.03)}
+.donut-slot{aspect-ratio:1;border:2px dashed rgba(232,185,74,.5);border-radius:16px;background:rgba(12,16,48,.5);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--muted);text-align:center;padding:12px}
+.zoom-hint{grid-column:1 / -1;text-align:center;font-size:22px;color:var(--muted)}
+#lightbox{position:fixed;inset:0;z-index:20;background:rgba(6,8,23,.92);display:flex;align-items:center;justify-content:center;cursor:zoom-out;
+  padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+#lightbox img{max-width:92vw;max-height:90vh;border-radius:14px;box-shadow:0 0 80px rgba(232,185,74,.35)}
+.img-slot{width:640px;height:640px;flex-shrink:0;align-self:center;border:2px dashed rgba(232,185,74,.5);border-radius:28px;
+  display:flex;align-items:center;justify-content:center;font-size:34px;color:var(--muted);background:rgba(12,16,48,.5)}
+/* images sit on the right (first in RTL), prompts on the left */
+.row > .tt-slot,.row > .hall,.row > .game-link,.row > .coin-video,.row > .coin-img,.row > .donuts,.row > .img-slot,.row > .zb-img{order:-1}
+.zb-img{width:820px;aspect-ratio:16/9;object-fit:cover;flex-shrink:0;align-self:center;border-radius:18px;border:2px solid rgba(232,185,74,.55);
+  box-shadow:0 0 60px rgba(232,185,74,.25);cursor:zoom-in}
+.zb-prompt{font-size:20px !important;line-height:1.45 !important}
+#overview{position:fixed;inset:0;z-index:10;background:rgba(6,8,23,.88);display:flex;align-items:center;justify-content:center;direction:rtl;
+  padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+.ov-box{width:min(1000px,100%);max-height:90vh;overflow:auto;background:var(--night-2);border:1px solid rgba(232,185,74,.5);border-radius:20px;padding:24px}
+.ov-head{display:flex;justify-content:space-between;align-items:center;font-size:24px;font-weight:800;color:var(--gold-soft);margin-bottom:18px}
+.ov-head button,.ov-grid button{font-family:var(--font);color:var(--text);background:rgba(12,16,48,.9);border:1px solid rgba(232,185,74,.35);border-radius:12px;cursor:pointer}
+.ov-head button{font-size:16px;padding:6px 16px;border-radius:999px}
+.ov-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.ov-grid button{display:flex;gap:10px;align-items:center;text-align:right;font-size:17px;padding:14px 16px;line-height:1.3}
+.ov-grid button b{color:var(--gold);font-size:20px;min-width:26px;font-variant-numeric:tabular-nums}
+.ov-grid button:hover{border-color:var(--gold)}
+.ov-grid button.on{background:linear-gradient(180deg,var(--gold-soft),var(--gold));color:var(--night);border-color:var(--gold)}
+.ov-grid button.on b{color:var(--night)}
+.ov-grid button:focus-visible,.ov-head button:focus-visible{outline:3px solid var(--field);outline-offset:2px}
+.zoom-wait{flex-direction:row;align-items:center;justify-content:space-between;gap:60px}
+.zw-img{width:820px;height:820px;flex-shrink:0;border-radius:50%;border:2px dashed rgba(232,185,74,.5);background:rgba(12,16,48,.5);
+  display:flex;align-items:center;justify-content:center;font-size:34px;color:var(--muted);object-fit:cover}
+img.zw-img{border:3px solid rgba(232,185,74,.6);box-shadow:0 0 90px rgba(232,185,74,.35)}
+.zw-title{font-size:150px;line-height:1.1;text-align:center;flex:1;background:linear-gradient(180deg,#fff6d8,var(--gold-soft) 35%,var(--gold) 80%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 40px rgba(232,185,74,.4))}
+img.gen-img{cursor:zoom-in;object-fit:cover;border:3px solid rgba(232,185,74,.6);background:#fff;box-shadow:0 0 60px rgba(232,185,74,.25)}
+.coin-video{width:900px;height:auto;aspect-ratio:16/9;align-self:center;flex-shrink:0;border-radius:20px;border:2px solid rgba(232,185,74,.55);background:#000;box-shadow:0 0 60px rgba(232,185,74,.25)}
+.game-link{width:520px;flex-shrink:0;align-self:center;display:flex;flex-direction:column;align-items:center;gap:26px;padding:50px 30px;
+  border-radius:28px;border:2px solid rgba(232,185,74,.5);background:rgba(8,14,40,.7);box-shadow:0 0 60px rgba(232,185,74,.2)}
+.gl-title{font-size:44px;font-weight:800;color:#fff}
+.btn-link{font-size:34px;font-weight:800;color:var(--night);text-decoration:none;background:linear-gradient(180deg,var(--gold-soft),var(--gold));border-radius:999px;padding:18px 48px}
+.btn-link:hover{filter:brightness(1.08)}
+.gstrip{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px;flex:1;min-height:0}
+.gfig{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0;min-height:0}
+.gfig img{width:100%;height:290px;object-fit:cover;object-position:center 35%;border-radius:14px;border:2px solid rgba(232,185,74,.5);cursor:zoom-in}
+.gcap{display:flex;justify-content:space-between;align-items:center}
+.gcap b{font-size:28px;color:var(--gold-soft)}
+.copy.mini{font-size:16px;padding:5px 16px}
+.gcard{padding:12px 14px;flex:1;min-height:0;overflow:auto}
+.gcard .prompt{font-size:14.5px !important;line-height:1.4 !important;white-space:pre-wrap}
+.gtstrip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px;flex:1;min-height:0}
+.gtrans{display:flex;flex-direction:column;gap:8px;min-width:0;min-height:0}
+.gpair{display:flex;align-items:center;gap:6px}
+.gpair img{width:calc(50% - 14px);height:200px;object-fit:cover;border-radius:12px;border:2px solid rgba(232,185,74,.5);cursor:zoom-in}
+.gpair span{font-size:30px;color:var(--gold)}
+.gtrans .gcap b{font-size:24px;direction:ltr}
+.gthumbs{display:grid;grid-template-columns:repeat(3,200px);gap:14px;flex-shrink:0;align-self:center}
+.gthumbs figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.gthumbs img{width:200px;height:300px;object-fit:cover;border-radius:14px;border:2px solid rgba(232,185,74,.5);cursor:zoom-in}
+.gthumbs figcaption{font-size:22px;color:var(--gold-soft);font-weight:700}
+.gpairs{display:flex;flex-direction:column;gap:24px;flex-shrink:0;align-self:center}
+.gp{display:flex;align-items:center;gap:12px}
+.gp img{width:190px;height:300px;object-fit:cover;border-radius:14px;border:2px solid rgba(232,185,74,.5);cursor:zoom-in}
+.gp span{font-size:46px;color:var(--gold)}
+.row > .gthumbs,.row > .gpairs{order:-1}
+.g-big .prompt{font-size:27px !important;line-height:1.45 !important}
+.g-big .note{font-size:28px}
+.g-big .gthumbs{grid-template-columns:repeat(3,170px)}
+.g-big .gthumbs img{width:170px;height:260px}
+.gsteps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px;flex:1;min-height:0;align-items:center}
+.gstep{display:flex;flex-direction:column;gap:12px;min-width:0}
+.gbody{display:flex;gap:18px;align-items:stretch;min-width:0}
+.gstep img{width:220px;height:391px;object-fit:cover;border-radius:16px;border:2px solid rgba(232,185,74,.55);flex-shrink:0;cursor:zoom-in;box-shadow:0 0 40px rgba(232,185,74,.18)}
+.gside{display:flex;flex-direction:column;gap:12px;min-width:0;flex:1}
+.gtop{display:flex;align-items:baseline;gap:12px}
+.gtop b{font-size:54px;line-height:1;color:#fff}
+.gtop span{font-size:26px;font-weight:700;color:#fff}
+.gside .card{padding:14px 16px;flex:1}
+.gside .prompt{font-size:22px !important;line-height:1.45 !important}
+.row > .gstep{order:0}
+.tsteps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px;flex:1;min-height:0;align-content:center}
+.tstep{display:flex;flex-direction:column;gap:10px;min-width:0}
+.tpair{display:flex;align-items:center;justify-content:center;gap:10px}
+.tpair img{width:150px;height:267px;object-fit:cover;border-radius:14px;border:2px solid rgba(232,185,74,.55);cursor:zoom-in}
+.tpair span{font-size:40px;color:var(--gold)}
+.tstep .gtop{justify-content:center}
+.tstep .gtop b{direction:ltr;font-size:40px}
+.tstep .card{padding:12px 16px}
+.tstep .prompt{font-size:19px !important;line-height:1.42 !important}
+.tpage2{justify-content:center}
+.tpage2 .tsteps{grid-template-columns:repeat(2,minmax(0,560px)) 320px;justify-content:center;gap:44px;flex:0 0 auto;align-items:start}
+.kex{display:flex;flex-direction:column;gap:10px;align-items:center}
+.kex video{width:320px;height:569px;border-radius:16px;border:2px solid rgba(232,185,74,.55);background:#000}
+.tpage2 .tpair img{width:200px;height:356px}
+.tpage2 .prompt{font-size:22px !important}
+.tsteps + .note{max-width:1300px;align-self:center;text-align:center;text-wrap:balance}
+.row > .hall{flex:0 0 640px;min-height:0}
+.tt-slot{flex:0 0 900px;height:506px;align-self:center;border:2px dashed rgba(232,185,74,.5);border-radius:20px;background:rgba(8,14,40,.55);display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--muted)}
+img.tt-slot{object-fit:cover;border:2px solid rgba(232,185,74,.55);cursor:zoom-in}
+.tools-row{display:flex;gap:14px;justify-content:center;align-items:center;flex-wrap:wrap}
+.tools-row .tl{font-size:26px;font-weight:700;color:#fff}
+.tools-row .chip{font-size:24px;padding:8px 22px;border-radius:999px;border:1px solid rgba(232,185,74,.5);background:rgba(8,14,40,.65);color:var(--gold-soft);direction:rtl}
+.pano-slide{padding:60px 90px 110px;gap:16px}
+.pano-wrap{position:relative;flex:1;min-height:0;border-radius:24px;overflow:hidden;border:2px solid rgba(232,185,74,.55);box-shadow:0 0 70px rgba(0,0,0,.45)}
+#pano{position:absolute;inset:0;cursor:grab;touch-action:none}
+#pano:active{cursor:grabbing}
+.pano-hint{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);font-size:24px;color:#fff;background:rgba(8,14,40,.6);padding:8px 22px;border-radius:999px;pointer-events:none}
+.pano-slide .link-card{flex:0 0 auto}
+/* overview as a popup menu with rows */
+#overview{background:transparent;align-items:flex-end;justify-content:flex-end;padding:0 0 calc(64px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+#overview .ov-box{width:340px;max-height:70vh;padding:10px;border-radius:16px;background:rgba(10,20,56,.97);box-shadow:0 20px 60px rgba(0,0,0,.6)}
+#overview .ov-head{font-size:18px;margin:4px 6px 8px}
+#overview .ov-grid{display:flex;flex-direction:column;gap:2px}
+#overview .ov-grid button{border:0;border-radius:10px;background:transparent;padding:9px 12px;font-size:16px;text-align:right}
+#overview .ov-grid button:hover{background:rgba(232,185,74,.14)}
+#overview .ov-grid button b{font-size:15px;min-width:24px;color:var(--muted)}
+#overview .ov-grid button.on{background:linear-gradient(180deg,var(--gold-soft),var(--gold));color:var(--night)}
+#overview .ov-grid button.on b{color:var(--night)}
+.gift-title{display:flex;align-items:center;gap:18px;font-size:44px;font-weight:700;color:#fff;margin-top:10px}
+.gift-ico{width:76px;height:76px;filter:drop-shadow(0 0 18px rgba(255,210,120,.45))}
+.end .gift{width:auto;min-width:900px}
+/* placeholder */
+.wait{flex:1;border:2px dashed rgba(232,185,74,.45);border-radius:24px;display:flex;align-items:center;justify-content:center;
+  font-size:40px;color:var(--muted)}
+
+/* coin rain */
+.rain{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:-1}
+.rain img{position:absolute;top:-200px;border-radius:50%;opacity:.95;animation:fall linear infinite;animation-play-state:paused}
+.slide.on .rain img{animation-play-state:running}
+@keyframes fall{to{transform:translateY(1400px) rotate(540deg)}}
+.big-msg{font-size:130px;font-weight:900;color:#fff;text-shadow:0 0 40px rgba(255,210,120,.35)}
+
+/* growth strip */
+.strip{display:flex;align-items:center;gap:18px;justify-content:center;flex:1}
+.strip figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:14px}
+.strip img{cursor:zoom-in;width:250px;height:445px;object-fit:cover;border-radius:18px;border:2px solid rgba(232,185,74,.5)}
+.strip figcaption{font-size:26px;color:var(--gold-soft);font-weight:700}
+.strip .arr{font-size:46px;color:var(--gold)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:28px;flex:1;min-height:0}
+.grid2 .card .prompt{font-size:27px}
+
+.tips{display:flex;flex-direction:column;gap:30px;margin:0;padding:0;list-style:none;max-width:1500px}
+.tips li{font-size:40px;line-height:1.45;padding-right:52px;position:relative}
+.tips li::before{content:"";position:absolute;right:0;top:.5em;width:22px;height:22px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,var(--gold-soft),var(--gold));box-shadow:0 0 18px rgba(232,185,74,.6)}
+.tips b{color:var(--gold-soft)}
+
+/* time tunnel */
+.link-card{flex-direction:row;align-items:center;justify-content:space-between}
+a.link{text-decoration:underline;text-underline-offset:6px;text-decoration-thickness:2px}
+a.link:hover{color:#fff}
+.link{font-family:var(--mono);font-size:38px;color:var(--gold-soft);direction:ltr;user-select:all}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:26px}
+.step{background:rgba(12,16,48,.7);border:1px solid rgba(232,185,74,.3);border-radius:20px;padding:30px;display:flex;flex-direction:column;gap:12px}
+.step .n{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;font-size:34px;font-weight:900;color:var(--night);
+  background:linear-gradient(180deg,var(--gold-soft),var(--gold))}
+.step .t{font-size:36px;font-weight:700}
+.hall{flex:1;min-height:0;border-radius:24px;background:center/cover no-repeat;border:1px solid rgba(232,185,74,.35)}
+
+.end h1{font-size:170px;color:#fff;text-shadow:0 0 50px rgba(255,210,120,.35)}
+.gift{width:1300px;margin-top:20px}
+
+/* navigation */
+.nav{position:fixed;z-index:5;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;gap:22px;direction:rtl;
+  padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  font-family:var(--font);opacity:.35;transition:opacity .3s}
+.nav:hover,.nav:focus-within{opacity:1}
+.nav button{font-family:var(--font);font-size:16px;font-weight:700;color:var(--text);background:rgba(12,16,48,.85);
+  border:1px solid rgba(232,185,74,.5);border-radius:999px;padding:7px 18px;cursor:pointer}
+.nav button:disabled{opacity:.35;cursor:default}
+.dots{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.dots button{width:11px;height:11px;padding:0;border-radius:50%;background:rgba(185,178,214,.35);border:0}
+.dots button.on{background:var(--gold);box-shadow:0 0 8px var(--gold)}
+.counter{font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:52px;text-align:center}
+@media (prefers-reduced-motion:reduce){.slide{transition:none}.rain img{animation:none}}
+</style>
+
+<div id="vignette"></div>
+
+<main id="stage">
+  <canvas id="bg" aria-hidden="true"></canvas>
+
+  <!-- 1: cover -->
+  <section class="slide cover center on" aria-label="פתיחה">
+    <h1 class="sr-only">מסיבת חנוכה עם AI</h1>
+    <div class="cover-meta">
+      <div class="date">רביעי 25.11.2026 &nbsp;|&nbsp; 20:00-21:30</div>
+      <div class="by">עם שירה רוט זליקוביץ</div>
+    </div>
+  </section>
+
+  <!-- 0: Zoom waiting slide -->
+  <section class="slide" aria-label="רקע לזום עם השם שלכם">
+    <div class="eyebrow">מסיבת חנוכה עם AI</div>
+    <h2>רקע לזום עם השם שלכם</h2>
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <div class="card-head"><div class="card-title">מעתיקים ומחליפים את השם</div><div class="btns"><button class="copy ghost" type="button" data-copy="Close-up food photograph of a single large Hanukkah Sufganiya (round filled doughnut, no hole), golden brown. The top is covered with a thin, even, fine veil of powdered sugar, like a light snowfall, smooth and matte; no thick layer, no clumps. The Hebrew name &quot;[NAME]&quot; is stenciled into this sugar in bold rounded Hebrew letters: inside the letters there is simply no sugar, so they are made of the bare fried dough itself, a slightly darker, deeper caramelized golden-brown, with a subtle hint of warm gold soaked into the crust. The letters have no outline, no cream fill, no icing; they are solid golden-brown dough, sharp and readable, slightly debossed. The Hebrew letters are spelled exactly right, right-to-left. Simple white plate, a few small doughnut holes and two small drops of red jam. Soft warm daylight, clean white background, shallow depth of field, photorealistic, high detail.">רק הסופגנייה</button><button class="copy" type="button">העתקה</button></div></div>
+          <pre class="prompt zb-prompt" dir="ltr">Wide 16:9 Zoom virtual background for a Hanukkah party. The entire center of the image, about 50% of the width, is left empty: only a soft, blurred rich midnight-blue background with a soft warm golden glow in the center and gentle golden bokeh, no objects and no text there, so a person can sit in the middle. Far left edge, within the left quarter of the image, in the upper half: Hebrew title in modern elegant handwritten brush lettering, flowing and calligraphic but clear and readable, in shiny polished gold with a soft glow, stacked in three short lines: "מסיבת" / "חנוכה עם" / "AI". The Hebrew letters are spelled exactly right, right-to-left, each letter clearly formed. Far right edge, within the right quarter of the image, lower half: a white plate with gold rim holding a single Sufganiya (round filled doughnut, no hole) with the Hebrew name "[NAME]" stenciled into a thin veil of powdered sugar in modern casual handwritten script lettering, rounded and friendly, like a stylish hand-drawn signature, showing golden-brown dough letters, clear and readable, spelled exactly right, right-to-left. A few small doughnut holes and two drops of red jam on the plate. The only other elements in the whole image are warm golden bokeh lights and soft sparkles. No menorah, no candles, no dreidel, no gifts, no other objects. Warm cinematic light, photorealistic, high detail.</pre>
+        </div>
+      </div>
+      <img class="zb-img" src="img/zoom-bg.webp" alt="רקע לזום עם סופגנייה ועליה השם שירה">
+    </div>
+  </section>
+
+
+  <!-- 3 -->
+  <section class="slide center" aria-label="חלק 1: שעשועי פרומפטים">
+    <div class="eyebrow">חלק 1</div>
+    <div class="big-msg">שעשועי פרומפטים</div>
+  </section>
+
+  <section class="slide" aria-label="סופגניות ממותגות" id="part1">
+    <div class="eyebrow">חלק 1</div>
+    <h2>סופגניות ממותגות</h2>
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <div class="card-head"><div class="card-title">סופגנייה ממותגת</div><button class="copy" type="button">העתקה</button></div>
+          <pre class="prompt" dir="ltr">Square 1:1 image. Elegant food photograph from about 30 degrees above, not top-down, showing the whole white plate inside the frame, with a little soft, out-of-focus background behind the plate that stays calm and does not draw attention. In the center of the plate, a single large, perfect Hanukkah Sufganiya (round filled doughnut, no hole), a flawless smooth high dome. It is coated in a soft, smooth, velvety layer of powdered sugar, like fresh fine snow, completely even, not grainy, not clumpy. The [BRAND] logo is stenciled into the sugar: inside the logo shape there is no sugar, and the golden fried dough there is dyed in the brand's original color, like color baked into the crust, with the natural dough texture still visible. The logo is exact, sharp and readable, true to the real brand logo; any Hebrew letters are spelled exactly right, right-to-left. Around it, a styled scene in the brand's colors: small powdered doughnut balls and glossy drops of red jam on the plate, a small bowl of jam, and one subtle item related to the brand. Bright soft daylight, white surface, photorealistic, high detail.</pre>
+        </div>
+        <p class="note">במקום [BRAND] כותבים שם של מותג. לוגו פרטי מצרפים כתמונה.</p>
+      </div>
+      <div class="donuts">
+        <img src="img/donut-lomdot2.webp" alt="סופגניית לומדות">
+        <img src="img/donut-nike.webp" alt="סופגניית נייקי">
+        <img src="img/donut-chatgpt.webp" alt="סופגניית ChatGPT">
+        <img src="img/donut-cola-full.webp" alt="סופגניית קוקה קולה">
+        <div class="zoom-hint">לחיצה על תמונה מגדילה אותה</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3b: human doughnut generator -->
+  <section class="slide" aria-label="מחולל הסופגניות האנושיות">
+    <div class="eyebrow">חלק 1</div>
+    <h2>מחולל הסופגניות האנושיות</h2>
+    <div class="row">
+      <div class="col" style="justify-content:center">
+        <div class="card link-card">
+          <a class="link" href="https://gemini.google.com/share/7e1a9557a41a" target="_blank" rel="noopener">https://gemini.google.com/share/7e1a9557a41a</a>
+        </div>
+      </div>
+      <img class="img-slot gen-img" src="img/generator2.webp" alt="סופגנייה אנושית מהמחולל">
+    </div>
+  </section>
+
+  <!-- 4: part 2 gate -->
+  <section class="slide center" aria-label="חלק 2: דמי חנוכה">
+    <div class="rain" id="rain"></div>
+    <div class="eyebrow">חלק 2</div>
+    <div class="big-msg">דמי חנוכה</div>
+    <p class="lead">שלחו את המטבע שלכם לצ'אט</p>
+  </section>
+
+  <!-- 5 -->
+  <section class="slide" aria-label="דמי חנוכה: מטבע זהב">
+    <div class="eyebrow">חלק 2</div>
+    <h2>דמי חנוכה: מטבע זהב</h2>
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <div class="card-head"><div class="card-title">מעלים תמונה שלכם ומדביקים</div><button class="copy" type="button">העתקה</button></div>
+          <pre class="prompt" dir="ltr">Transform the person in the attached photo into the portrait on a real minted gold commemorative coin, sculpted by a master coin engraver. The face in classic side profile, calm closed-mouth expression, idealized and simplified forms exactly like portraits on real coins, low bas-relief rising slightly from the surface. No photographic details: no skin texture, no wrinkles, no teeth, the eye sculpted as smooth metal, hair rendered as fine engraved strands. The whole coin is one solid gold metal with a proof finish: frosted matte relief on a mirror-polished field. Hebrew text "[NAME]" struck along the top rim, "[GREETING]" along the bottom rim, the number "[VALUE]" small beneath the portrait. Raised rim with a fine beaded border, reeded edge. Fantasy commemorative coin, not resembling any real currency. Macro product photograph, soft raking side light revealing the depth of the relief, the coin lying flat on a plain deep navy blue background.</pre>
+        </div>
+        <p class="note">מחליפים את השדות הצבועים: השם שלכם, ברכה ומספר.</p>
+      </div>
+      <img class="coin-img" src="img/coin.jpg" alt="מטבע זהב לדוגמה">
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section class="slide" aria-label="הנפשת המטבע">
+    <div class="eyebrow">חלק 2</div>
+    <h2>מנפישים את המטבע</h2>
+    <div class="row">
+      <div class="card col">
+        <div class="card-head"><div class="card-title">ב-&rlm;<bdi>Flow</bdi></div><button class="copy" type="button">העתקה</button></div>
+        <pre class="prompt" dir="ltr">Realistic macro product video. A solid gold commemorative coin spins fast on its edge on a plain deep navy blue surface, the reeded edge and polished field catching the light, the struck portrait flashing in and out of view. The coin gradually slows down, wobbles in tightening circles with a rattling sound, and finally falls flat face-up and settles, ending exactly on the coin as shown in the reference image. Soft raking side light, realistic metal reflections, sharp focus, slow subtle camera push-in, no text changes, the portrait and Hebrew lettering stay identical.</pre>
+      </div>
+      <video class="coin-video" src="img/coin.mp4" controls loop playsinline preload="metadata" aria-label="סרטון המטבע המסתובב"></video>
+    </div>
+  </section>
+
+  <!-- dreidel game -->
+  <section class="slide" aria-label="משחק הסביבון">
+    <div class="eyebrow">חלק 2</div>
+    <h2>סביבון שמחלק מטבעות</h2>
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <div class="card-head"><div class="card-title">מדביקים בצ'אט ומקבלים משחק</div><button class="copy" type="button">העתקה</button></div>
+          <pre class="prompt" dir="rtl" style="font-size:21px;line-height:1.45">בנה לי משחק סביבון לחנוכה בעברית, מימין לשמאל, בקובץ HTML אחד.
+
+הסביבון:
+- סביבון תלת־ממדי ריאליסטי מעץ מלוטש (Three.js), עם האותיות נ, ג, ה, פ חרוטות בזהב על ארבע הפאות.
+- לחיצה על "סובבו!" מסובבת אותו מהר על הידית שלו, עם תאורה רכה וצל על השולחן. הוא מאט בהדרגה, מתנדנד ונעצר, והאות שיצאה נראית ברורה.
+- צליל סיבוב עדין וצליל "טוק" כשהוא נעצר.
+
+המשחק:
+- בהתחלה מקלידים שמות של 2 עד 8 משתתפים. כל אחד מקבל 10 מטבעות זהב, ובקופה שבמרכז יש 5 מטבעות.
+- התורות עוברים לפי הסדר, ושם המשתתף שתורו מודגש.
+- נ (נס): לא קורה כלום. ג (גדול): לוקחים את כל הקופה. ה (היה): לוקחים חצי מהקופה. פ (פה): שמים מטבע אחד בקופה.
+- כשהקופה מתרוקנת, כל אחד שם בה מטבע אחד.
+- המטבעות עפים באנימציה מהקופה אל המשתתף או ממנו אל הקופה, עם צליל צלצול.
+
+המסך:
+- רקע כחול כהה עם אורות בוקה זהובים, לוח ניקוד עם שם כל משתתף ומספר המטבעות שלו.
+- פונט Heebo לכל הטקסט.
+- כפתורים גדולים וברורים, שמתאימים לשיתוף מסך בזום, וכפתור "משחק חדש".</pre>
+        </div>
+      </div>
+      <div class="game-link">
+        <div class="gl-title">משחק לדוגמה</div>
+        <a class="btn-link" href="https://share.gemini.google/rgtmvsRW044X" target="_blank" rel="noopener">לפתיחת המשחק</a>
+        <span class="link" style="font-size:24px">share.gemini.google/rgtmvsRW044X</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section class="slide" aria-label="סרטון גדילה: תמונות 1 עד 3">
+    <div class="eyebrow">חלק 3 · סרטון גדילה</div>
+    <h2>יוצרים את הדמות</h2>
+    <div class="gsteps">
+      <div class="gstep">
+        <div class="gtop"><b>1</b><span>הדמות: כדור בצק</span></div>
+        <div class="gbody"><img src="img/s1.jpg" alt="תמונה 1"><div class="gside"><div class="card"><div class="card-head"><div></div><button class="copy mini" type="button">העתקה</button></div><pre class="prompt" dir="ltr">Create a Pixar-style 3D character: a round Sufganiya (filled, no hole) girl/boy with [topping as hair], [eye color] eyes and [one special detail]. Image 1: a small sleeping ball of dough on a floured wooden table. Vertical 9:16, no text.</pre></div></div></div>
+      </div>
+      <div class="gstep">
+        <div class="gtop"><b>2</b><span>תינוק או תינוקת</span></div>
+        <div class="gbody"><img src="img/s2.jpg" alt="תמונה 2"><div class="gside"><div class="card"><div class="card-head"><div></div><button class="copy mini" type="button">העתקה</button></div><pre class="prompt" dir="ltr">Same character, now tiny and very young, just a little bigger than the dough ball, [where it is and what it does]. Same style, same face. Vertical 9:16, no text.</pre></div></div></div>
+      </div>
+      <div class="gstep">
+        <div class="gtop"><b>3</b><span>בוחרים גיל ומקום</span></div>
+        <div class="gbody"><img src="img/s3.jpg" alt="תמונה 3"><div class="gside"><div class="card"><div class="card-head"><div></div><button class="copy mini" type="button">העתקה</button></div><pre class="prompt" dir="ltr">Same character, now at age [age], [where they are and what they do]. Same style, same face. Vertical 9:16, no text.</pre></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="סרטון גדילה: תמונות 4 עד 6">
+    <div class="eyebrow">חלק 3 · סרטון גדילה</div>
+    <h2>ממשיכים לגדול</h2>
+    <div class="gsteps">
+      <div class="gstep">
+        <div class="gtop"><b>4</b><span>בוחרים גיל ומקום</span></div>
+        <div class="gbody"><img src="img/s4.jpg" alt="תמונה 4"><div class="gside"><div class="card"><div class="card-head"><div></div><button class="copy mini" type="button">העתקה</button></div><pre class="prompt" dir="ltr">Same character, now at age [age], [where they are and what they do]. Same style, same face. Vertical 9:16, no text.</pre></div></div></div>
+      </div>
+      <div class="gstep">
+        <div class="gtop"><b>5</b><span>בוחרים גיל ומקום</span></div>
+        <div class="gbody"><img src="img/s5.jpg" alt="תמונה 5"><div class="gside"><div class="card"><div class="card-head"><div></div><button class="copy mini" type="button">העתקה</button></div><pre class="prompt" dir="ltr">Same character, now at age [age], [where they are and what they do]. Same style, same face. Vertical 9:16, no text.</pre></div></div></div>
+      </div>
+      <div class="gstep">
+        <div class="gtop"><b>6</b><span>בוחרים גיל ומקום</span></div>
+        <div class="gbody"><img src="img/s6.jpg" alt="תמונה 6"><div class="gside"><div class="card"><div class="card-head"><div></div><button class="copy mini" type="button">העתקה</button></div><pre class="prompt" dir="ltr">Same character, now at age [age], [where they are and what they do]. Same style, same face. Vertical 9:16, no text.</pre></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="סרטון גדילה: מעברים 1 עד 3">
+    <div class="eyebrow">חלק 3 · סרטון גדילה</div>
+    <h2>מחברים את התמונות</h2>
+    <div class="tsteps">
+      <div class="tstep">
+        <div class="tpair"><img src="img/s1.jpg" alt="תמונה 1"><span>‹</span><img src="img/s2.jpg" alt="תמונה 2"></div>
+        <div class="gtop"><b>2 ← 1</b></div>
+        <div class="card"><div class="card-head"><div></div><button class="copy mini" type="button">העתקה</button></div><pre class="prompt" dir="ltr">One continuous shot, no cuts, no crossfade, no dissolve. Start exactly on Image1 and end exactly on Image2. [The dough ball slowly turns golden-brown and becomes a tiny cute Sufganiya character; the flour around it softens into a fluffy pink blanket, and the camera slowly pulls back to reveal a cozy wooden cradle with a dreidel mobile above]. The character never disappears or gets replaced; it changes continuously.</pre></div>
+      </div>
+      <div class="tstep">
+        <div class="tpair"><img src="img/s2.jpg" alt="תמונה 2"><span>‹</span><img src="img/s3.jpg" alt="תמונה 3"></div>
+        <div class="gtop"><b>3 ← 2</b></div>
+        <div class="card"><div class="card-head"><div></div><button class="copy mini" type="button">העתקה</button></div><pre class="prompt" dir="ltr">One continuous shot, no cuts, no crossfade, no dissolve. Start exactly on Image1 and end exactly on Image2. [The little Sufganiya sits up in the cradle, grows a bit bigger and climbs out; the camera follows it as it walks forward, and the room gradually becomes a bright, colorful playroom with toy blocks, where it sits down and starts drawing a menorah]. The character never disappears or gets replaced; it changes continuously.</pre></div>
+      </div>
+      <div class="tstep">
+        <div class="tpair"><img src="img/s3.jpg" alt="תמונה 3"><span>‹</span><img src="img/s4.jpg" alt="תמונה 4"></div>
+        <div class="gtop"><b>4 ← 3</b></div>
+        <div class="card"><div class="card-head"><div></div><button class="copy mini" type="button">העתקה</button></div><pre class="prompt" dir="ltr">One continuous shot, no cuts, no crossfade, no dissolve. Start exactly on Image1 and end exactly on Image2. [The Sufganiya finishes drawing, stands up and walks out through the open door, growing taller with each step; the camera follows it down a sunny path to a school gate with colorful balloons, where a new backpack waits on a bench, and it puts the backpack on]. The character never disappears or gets replaced; it changes continuously.</pre></div>
+      </div>
+    </div>
+    <p class="note">בכלי הווידאו מעלים את התמונה הראשונה כפתיחה ואת השנייה כסיום. את מה שבסוגריים מחליפים בתנועה שלכם.</p>
+      <div class="tools-row"><span class="tl">כלים לסרטון:</span><span class="chip">Flow</span><span class="chip">Vids</span><span class="chip">Vidogrid</span><span class="chip">Kling (בתשלום, תוצאות מצוינות)</span></div>
+  </section>
+
+  <section class="slide tpage2" aria-label="סרטון גדילה: מעברים 4 עד 5">
+    <div class="eyebrow">חלק 3 · סרטון גדילה</div>
+    <div class="tsteps">
+      <div class="tstep">
+        <div class="tpair"><img src="img/s4.jpg" alt="תמונה 4"><span>‹</span><img src="img/s5.jpg" alt="תמונה 5"></div>
+        <div class="gtop"><b>5 ← 4</b></div>
+        <div class="card"><div class="card-head"><div></div><button class="copy mini" type="button">העתקה</button></div><pre class="prompt" dir="ltr">One continuous shot, no cuts, no crossfade, no dissolve. Start exactly on Image1 and end exactly on Image2. [The Sufganiya takes off the backpack, grows taller and jumps onto a colorful bicycle by the school gate; the camera rides alongside as the schoolyard turns into a sunny street and it pedals faster, laughing]. The character never disappears or gets replaced; it changes continuously.</pre></div>
+      </div>
+      <div class="tstep">
+        <div class="tpair"><img src="img/s5.jpg" alt="תמונה 5"><span>‹</span><img src="img/s6.jpg" alt="תמונה 6"></div>
+        <div class="gtop"><b>6 ← 5</b></div>
+        <div class="card"><div class="card-head"><div></div><button class="copy mini" type="button">העתקה</button></div><pre class="prompt" dir="ltr">One continuous shot, no cuts, no crossfade, no dissolve. Start exactly on Image1 and end exactly on Image2. [The Sufganiya rides toward the camera, brakes and jumps off into a happy twirl; as it spins it grows taller, the helmet flies off, its clothes swirl into a light-blue party dress, and the street blurs into a festive party hall with string lights, a golden menorah and a friendly robot DJ; it lands in a dance pose with both arms raised]. The character never disappears or gets replaced; it changes continuously.</pre></div>
+      </div>
+      <div class="kex">
+        <div class="gtop"><b style="font-size:30px">דוגמה מקלינג</b></div>
+        <video src="img/kling-example.mp4" controls loop playsinline preload="metadata" aria-label="סרטון מעבר לדוגמה מקלינג"></video>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  
+  <!-- 9 -->
+  <section class="slide" aria-label="טיפים לסרטון הגדילה">
+    <div class="eyebrow">חלק 3</div>
+    <h2>טיפים</h2>
+    <ul class="tips">
+      <li>ליצור את כל התמונות <b>באותה שיחה</b>, כדי שהדמות תישאר אותה דמות.</li>
+      <li>אם כלי הווידאו עושה דיזולב, לתאר <b>תנועה פיזית</b>: היא קמה, הולכת ויוצאת מהדלת.</li>
+      <li>כלי וידאו מבינים <b>אנגלית</b> טוב יותר. אפשר לבקש מ-&rlm;<bdi>ChatGPT</bdi>: "תתרגם לי את זה לפרומפט באנגלית לכלי וידאו".</li>
+    </ul>
+  </section>
+
+  <!-- 10 -->
+  <section class="slide" aria-label="חלק 4: מנהרת הזמן">
+    <div class="eyebrow">חלק 4</div>
+    <h2>מנהרת הזמן</h2>
+    <div class="row">
+      <div class="card col" style="align-self:center">
+        <div class="card-head"><div class="card-title">פרומפט לתמונה אימרסיבית (360)</div><button class="copy" type="button">העתקה</button></div>
+        <pre class="prompt" dir="ltr">A 360-degree equirectangular panorama, 2:1 aspect ratio, of [the place and time you travel to]. The camera stands at eye level in the center of a wide, open space, indoors or outdoors, with clear ground all around it. All people and objects are at least 3 meters away from the camera, nothing close to the lens; any people are seen full body in the middle distance, going about their activity. The left and right edges connect seamlessly, with a straight horizon and no visible seams or distortion. Rich details all around, warm cinematic light, photorealistic, no text, no people looking at the camera.</pre>
+      </div>
+      <img class="tt-slot" id="tunnel-img" src="img/pano2.jpg" alt="תמונת 360 של משפחה מדליקה נרות חנוכה">
+    </div>
+  </section>
+
+  <section class="slide pano-slide" aria-label="תמונת 360">
+    <div class="eyebrow">חלק 4 · מנהרת הזמן</div>
+    <div class="pano-wrap"><div id="pano" aria-label="תמונת 360, גוררים כדי להסתובב"></div><div class="pano-hint">גוררים כדי להסתובב</div></div>
+    <div class="card link-card">
+      <a class="link" href="https://shirazel.github.io/Time-Tunnel/" target="_blank" rel="noopener">https://shirazel.github.io/Time-Tunnel/</a>
+      <button class="copy" type="button" data-copy="https://shirazel.github.io/Time-Tunnel/">העתקה</button>
+    </div>
+  </section>
+
+  <!-- 11 -->
+  <section class="slide end center" aria-label="סיום">
+    <h1>חג אורים שמח</h1>
+    <div class="rule"></div>
+    <div class="gift-title"><svg class="gift-ico" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="gg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe3a1"/><stop offset="1" stop-color="#e8b94a"/></linearGradient></defs><rect x="8" y="26" width="48" height="32" rx="4" fill="url(#gg)"/><rect x="5" y="17" width="54" height="12" rx="3" fill="#ffe3a1"/><rect x="28" y="17" width="8" height="41" fill="#b8323a"/><path d="M32 17c-4-9-15-11-15-4 0 5 9 5 15 4zm0 0c4-9 15-11 15-4 0 5-9 5-15 4z" fill="none" stroke="#b8323a" stroke-width="4" stroke-linejoin="round"/></svg><span>מתנה לדרך</span></div>
+    <div class="card link-card gift">
+      <a class="link" href="https://shirazel.github.io/360/" target="_blank" rel="noopener">https://shirazel.github.io/360/</a>
+      <button class="copy" type="button" data-copy="https://shirazel.github.io/360/">העתקה</button>
+    </div>
+  </section>
+
+</main>
+
+<nav class="nav" aria-label="ניווט במצגת">
+  <button type="button" id="prev">הקודם</button>
+  <div class="dots" id="dots"></div>
+  <span class="counter" id="counter"></span>
+  <button type="button" id="next">הבא</button>
+  <button type="button" id="fs" title="מסך מלא (F)">מסך מלא</button>
+  <button type="button" id="allBtn" title="כל השקפים (G)">כל השקפים</button>
+</nav>
+<div id="lightbox" hidden><img id="lbImg" src="" alt=""></div>
+<div id="overview" hidden>
+  <div class="ov-box">
+    <div class="ov-head"><span>כל השקפים</span><button type="button" id="ovClose">סגירה</button></div>
+    <div class="ov-grid" id="ovGrid"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  /* ---------- fields highlight ---------- */
+  document.querySelectorAll('.prompt').forEach(function(p){
+    var raw=p.textContent;
+    p.dataset.raw=raw;
+    var esc=raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    p.innerHTML=esc.replace(/\[[^\]\n]*\]/g,function(m){return '<span class="fld">'+m+'</span>';});
+  });
+
+  /* ---------- copy ---------- */
+  function fallbackCopy(text){
+    var ta=document.createElement('textarea');
+    ta.value=text;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.top='-1000px';
+    document.body.appendChild(ta);ta.select();
+    var ok=false;try{ok=document.execCommand('copy');}catch(e){}
+    document.body.removeChild(ta);return ok;
+  }
+  function flash(btn,ok){
+    if(!btn.dataset.label)btn.dataset.label=btn.textContent;
+    btn.textContent=ok?'הועתק':'סמנו והעתיקו';
+    btn.classList.toggle('done',ok);
+    clearTimeout(btn._t);
+    btn._t=setTimeout(function(){btn.textContent=btn.dataset.label;btn.classList.remove('done');},1800);
+  }
+  document.addEventListener('click',function(e){
+    var btn=e.target.closest('.copy');if(!btn)return;
+    var text=btn.dataset.copy;
+    if(!text){var host=btn.closest('.card')||btn.closest('.gfig')||btn.closest('.gtrans');text=host.querySelector('.prompt').dataset.raw;}
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){flash(btn,true);},function(){flash(btn,fallbackCopy(text));});
+    }else{flash(btn,fallbackCopy(text));}
+  });
+
+  /* ---------- slides ---------- */
+  var stage=document.getElementById('stage');
+  var slides=[].slice.call(document.querySelectorAll('.slide'));
+  var dots=document.getElementById('dots'),counter=document.getElementById('counter');
+  var prevB=document.getElementById('prev'),nextB=document.getElementById('next');
+  var cur=0;
+  slides.forEach(function(s,i){
+    var d=document.createElement('button');d.type='button';d.setAttribute('aria-label','שקף '+(i+1));
+    d.addEventListener('click',function(){go(i);});dots.appendChild(d);
+  });
+  function go(i){
+    i=Math.max(0,Math.min(slides.length-1,i));
+    slides[cur].classList.remove('on');cur=i;slides[cur].classList.add('on');
+    [].forEach.call(dots.children,function(d,j){d.classList.toggle('on',j===cur);});
+    counter.textContent=(cur+1)+' / '+slides.length;
+    prevB.disabled=cur===0;nextB.disabled=cur===slides.length-1;
+    try{history.replaceState(null,'','#s'+(cur+1));}catch(e){}
+    [].forEach.call(ovGrid.children,function(b,j){b.classList.toggle('on',j===cur);});
+  }
+  /* overview */
+  var ov=document.getElementById('overview'),ovGrid=document.getElementById('ovGrid');
+  slides.forEach(function(s,i){
+    var b=document.createElement('button');b.type='button';
+    b.innerHTML='<b>'+(i+1)+'</b><span></span>';b.lastChild.textContent=s.getAttribute('aria-label')||'';
+    b.addEventListener('click',function(){go(i);ov.hidden=true;});ovGrid.appendChild(b);
+  });
+  /* lightbox */
+  var lb=document.getElementById('lightbox'),lbImg=document.getElementById('lbImg');
+  document.querySelectorAll('.donuts img,.zb-img,.gen-img,.coin-img,.strip img,.gfig img,.gpair img,.gthumbs img,.gp img,.gstep img,.tpair img,img.tt-slot').forEach(function(im){
+    im.addEventListener('click',function(){lbImg.src=im.getAttribute('src');lbImg.alt=im.alt;lb.hidden=false;});
+  });
+  lb.addEventListener('click',function(){lb.hidden=true;});
+  function toggleOv(){ov.hidden=!ov.hidden;if(!ov.hidden){var a=ovGrid.children[cur];if(a)a.focus();}}
+  document.getElementById('allBtn').addEventListener('click',toggleOv);
+  document.getElementById('ovClose').addEventListener('click',function(){ov.hidden=true;});
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.hidden=true;});
+  prevB.addEventListener('click',function(){go(cur-1);});
+  nextB.addEventListener('click',function(){go(cur+1);});
+  function fit(){
+    var s=Math.min(window.innerWidth/1920,window.innerHeight/1080);
+    stage.style.transform='translate(-50%,-50%) scale('+s+')';
+  }
+  window.addEventListener('resize',fit);fit();
+  function toggleFs(){
+    try{
+      if(!document.fullscreenElement){var r=document.documentElement.requestFullscreen();if(r&&r.catch)r.catch(function(){});}
+      else{document.exitFullscreen();}
+    }catch(e){}
+  }
+  document.getElementById('fs').addEventListener('click',toggleFs);
+  document.addEventListener('keydown',function(e){
+    if(e.target.closest&&e.target.closest('input,textarea'))return;
+    if(!lb.hidden){if(e.key==='Escape'||e.key===' ')lb.hidden=true;e.preventDefault();return;}
+    if(e.key==='g'||e.key==='G'||e.key==='ע'){toggleOv();return;}
+    if(!ov.hidden){if(e.key==='Escape')ov.hidden=true;return;}
+    if(e.key==='ArrowLeft'||e.key===' '||e.key==='PageDown'){e.preventDefault();go(cur+1);}
+    else if(e.key==='ArrowRight'||e.key==='PageUp'){e.preventDefault();go(cur-1);}
+    else if(e.key==='Home'){go(0);}else if(e.key==='End'){go(slides.length-1);}
+    else if(e.key==='f'||e.key==='F'||e.key==='כ'){toggleFs();}
+  });
+  var m=/^#s(\d+)$/.exec(location.hash);go(m?parseInt(m[1],10)-1:0);
+
+  /* ---------- coin rain ---------- */
+  var rain=document.getElementById('rain');
+  for(var k=0;k<16;k++){
+    var c=document.createElement('img');c.src='img/coin.jpg';c.alt='';
+    var coinPx=70+Math.random()*90;
+    c.style.width=c.style.height=coinPx+'px';
+    c.style.left=(Math.random()*96)+'%';
+    c.style.animationDuration=(4+Math.random()*4)+'s';
+    c.style.animationDelay=(-Math.random()*8)+'s';
+    rain.appendChild(c);
+  }
+
+  /* ---------- gentle golden twinkles over the bokeh background image (light) ---------- */
+  var cv=document.getElementById('bg'),ctx=cv.getContext('2d');
+  var RES=0.6,W=0,H=0,dust=[];
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function size(){W=cv.width=Math.round(1920*RES);H=cv.height=Math.round(1080*RES);}
+  size();window.addEventListener('resize',size);
+  /* points sit along the left and right edges, where the bokeh in the image is */
+  for(var i=0;i<46;i++){var left=Math.random()<0.45,x=left?Math.random()*0.16:0.84+Math.random()*0.16;
+    dust.push({x:x,y:Math.random(),p:Math.random()*6.28,v:0.25+Math.random()*0.5,r:0.7+Math.random()*1.6});}
+  var last=0,t0=performance.now(),running=true,raf=0;
+  function frame(now){
+    raf=requestAnimationFrame(frame);
+    if(now-last<33)return; last=now;
+    var t=(now-t0)/1000;
+    ctx.clearRect(0,0,W,H);
+    for(var u=0;u<dust.length;u++){var z=dust[u],k=Math.sin(t*z.v+z.p),aa=Math.max(0,k)*0.85;
+      if(aa<0.02)continue;
+      var x=z.x*W,y=z.y*H,r=z.r*RES*2.2;
+      var g=ctx.createRadialGradient(x,y,0,x,y,r*3);
+      g.addColorStop(0,'rgba(255,230,160,'+aa+')');g.addColorStop(0.35,'rgba(255,196,80,'+(aa*0.45)+')');g.addColorStop(1,'rgba(255,190,70,0)');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*3,0,6.2832);ctx.fill();}
+    if(reduce){cancelAnimationFrame(raf);running=false;}
+  }
+  raf=requestAnimationFrame(frame);
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden){cancelAnimationFrame(raf);running=false;}
+    else if(!running&&!reduce){running=true;last=0;raf=requestAnimationFrame(frame);}
+  });
+})();
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  var el=document.getElementById('pano');if(!el)return;
+  var slide=el.closest('.slide'),r=null,scene,cam,lon=0,lat=0,drag=null,last=0,started=false;
+  function init(){
+    if(started||!window.THREE)return;started=true;
+    r=new THREE.WebGLRenderer({antialias:true});r.setPixelRatio(Math.min(1.5,window.devicePixelRatio||1));
+    el.appendChild(r.domElement);r.domElement.style.width='100%';r.domElement.style.height='100%';
+    scene=new THREE.Scene();cam=new THREE.PerspectiveCamera(90,1,0.1,1100);
+    var g=new THREE.SphereGeometry(500,60,40);g.scale(-1,1,1);
+    var t=new THREE.TextureLoader().load('img/pano2.jpg');
+    scene.add(new THREE.Mesh(g,new THREE.MeshBasicMaterial({map:t})));
+    size();
+  }
+  function size(){if(!r)return;var w=el.clientWidth,h=el.clientHeight;if(!w||!h)return;r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}
+  el.addEventListener('pointerdown',function(e){drag={x:e.clientX,y:e.clientY,lon:lon,lat:lat};el.setPointerCapture(e.pointerId);});
+  el.addEventListener('pointermove',function(e){if(!drag)return;lon=drag.lon-(e.clientX-drag.x)*0.15;lat=Math.max(-80,Math.min(80,drag.lat+(e.clientY-drag.y)*0.15));});
+  el.addEventListener('pointerup',function(){drag=null;});
+  el.addEventListener('wheel',function(e){if(!cam)return;e.preventDefault();cam.fov=Math.max(40,Math.min(105,cam.fov+e.deltaY*0.03));cam.updateProjectionMatrix();},{passive:false});
+  function loop(now){
+    requestAnimationFrame(loop);
+    if(document.hidden||!slide.classList.contains('on'))return;
+    if(!started){init();size();}
+    if(now-last<33)return;last=now;
+    if(!drag)lon+=0.04;
+    var phi=THREE.MathUtils.degToRad(90-lat),th=THREE.MathUtils.degToRad(lon);
+    cam.lookAt(500*Math.sin(phi)*Math.cos(th),500*Math.cos(phi),500*Math.sin(phi)*Math.sin(th));
+    if(r.domElement.width<2)size();
+    r.render(scene,cam);
+  }
+  window.addEventListener('resize',size);
+  requestAnimationFrame(loop);
+})();
+</script>
